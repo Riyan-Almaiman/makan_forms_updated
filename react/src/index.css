@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Modal content */
+  .modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 4px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  }
+  @media (min-width: 768px) {
+    .sidebar {
+      transform: translateX(0);
+    }
+  }
+  
+  .custom-select {
+    /* Hide the default arrow */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: transparent;
+    padding-left: 24px; /* Adjust padding to fit the custom arrow */
+    position: relative;
+  }
+  
+  .custom-select::after {
+    content: '▼'; /* Custom arrow symbol */
+    position: absolute;
+    left: 8px; /* Position the custom arrow */
+    pointer-events: none; /* Ensure the arrow doesn't block clicks */
+    color: #000; /* Arrow color */
+    top: 50%;
+    transform: translateY(-50%); /* Center the arrow vertically */
+  }
+  
+  .custom-select:disabled::after {
+    color: #ccc; /* Change arrow color when disabled */
+  }
+  
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+  }
+  
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+  }
+  
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+  }
+  
+  input:checked + .slider {
+    background-color: #196A58;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+  
+  .slider.round {
+    border-radius: 34px;
+  }
+  
+  .slider.round:before {
+    border-radius: 50%;
+  }

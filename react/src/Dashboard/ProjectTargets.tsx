@@ -1,0 +1,189 @@
+import React, { useState, useEffect } from 'react';
+import { Clock, Calendar, Layers, Download, FileText } from 'lucide-react';
+import { dashboardService, ProjectTargetsResponse } from '../services/dashboardService';
+
+const DELIVERY_NUMBER = 3;
+const DELIVERY_DATE = '2024-12-10'; // Hard-coded delivery date
+
+// Add an array of authorized user IDs
+const AUTHORIZED_USER_IDS = [4850, 4591, 4592, 4720, 4804, 4805, 4841, 3, 4414, 5035]; // Replace with actual authorized user IDs
+
+const ProjectTargets: React.FC = () => {
+    const [projectTargets, setProjectTargets] = useState<ProjectTargetsResponse | null>(null);
+    const [completedSheetsCount, setCompletedSheetsCount] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isAuthorized, setIsAuthorized] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const [targets, sheetsCount] = await Promise.all([
+                    dashboardService.getProjectTargets(DELIVERY_NUMBER),
+                    dashboardService.getCompletedSheetsCount()
+                ]);
+                setProjectTargets(targets);
+                setCompletedSheetsCount(sheetsCount);
+                setLoading(false);
+
+                // Check user authorization
+                const userJson = localStorage.getItem('user');
+                if (userJson) {
+                    const user = JSON.parse(userJson);
+                    setIsAuthorized(AUTHORIZED_USER_IDS.includes(user));
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                setError('Failed to fetch data');
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    const calculateProgress = (completed: number, total: number) => {
+        return total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
+    };
+
+    const calculateTimeRemaining = (deliveryDate: string) => {
+        const now = new Date();
+        const delivery = new Date(deliveryDate);
+        const timeRemaining = delivery.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(timeRemaining / (1000 * 3600 * 24));
+        return daysRemaining > 0 ? `${daysRemaining} days` : '0';
+    };
+
+    const handleDownloadExcel = async () => {
+        try {
+            const blob = await dashboardService.downloadCompletedSheetsExcel();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CompletedSheets_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading Excel file:', error);
+            setError('Failed to download Excel file');
+        }
+    };
+
+    const handleDownloadExcelAll = async () => {
+        try {
+            const blob = await dashboardService.downloadCompletedSheetStatusesExcel();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CompletedSheetStatuses_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading Excel file:', error);
+            setError('Failed to download Excel file');
+        }
+    };
+
+    if (loading)
+        return (
+            <div className="flex justify-center items-center h-64">
+                <span className="loading loading-spinner loading-lg text-[#196A58]"></span>
+            </div>
+        );
+    if (error) return <div className="alert alert-error">{error}</div>;
+
+    return (
+        <div className="container mx-auto ">
+            <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
+                <div style={{ backgroundImage: `url(makanBackgroundDark.png)` }} className="p-4">
+                    <h3 className="text-2xl font-bold text-white flex items-center justify-between">
+                        <span>Delivery {projectTargets?.deliveryNumber}</span>
+                        <button
+                            onClick={handleDownloadExcelAll}
+                            className="text-[#196A58] text-sm p-1 rounded-md flex items-center hover:bg-[#196A58] transition-colors duration-300"
+                        >
+                            <Download className="w-6 h-6 text-white" />
+                        </button>
+                    </h3>
+                </div>
+                <div className="p-4">
+                    <div className={`grid grid-cols-1 ${isAuthorized ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 mb-6`}>
+                        <div style={{ backgroundImage: `url(makanBackgroundDark.png)` }} className="text-center p-3 rounded-lg">
+                            <div className="text-sm mb-2 text-white">Delivery Date</div>
+                            <Calendar className="w-8 h-8 text-white mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">
+                                {new Date(DELIVERY_DATE).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                        </div>
+                        {isAuthorized && (
+                            <div
+                                style={{ backgroundImage: `url(makanBackgroundDark.png)` }}
+                                className="text-center p-3 rounded-lg cursor-pointer hover:opacity-80 transition-opacity duration-300"
+                                onClick={handleDownloadExcel}
+                            >
+                                <div className="text-sm mb-2 text-white">Sheets Completed</div>
+                                <FileText className="w-8 h-8 text-white mx-auto mb-2" />
+                                <div className="text-lg font-bold text-white flex items-center justify-center">
+                                    {completedSheetsCount}
+                                    <Download className="w-4 h-4 ml-2 text-white" />
+                                </div>
+                            </div>
+                        )}
+                        <div style={{ backgroundImage: `url(makanBackgroundDark.png)` }} className="text-center p-3 rounded-lg">
+                            <div className="text-sm mb-2 text-white">Time Remaining</div>
+                            <Clock className="w-8 h-8 text-white mx-auto mb-2" />
+                            <div className="text-lg font-bold text-white">
+                                {calculateTimeRemaining(DELIVERY_DATE)}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        {projectTargets?.layerData.map((layer) => (
+                            <div key={layer.layerId} className="bg-[#F0F7F5]/70 shadow-md p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="flex items-center text-lg font-semibold text-[#196A58]">
+                                        <Layers className="w-3 h-3 mr-2 font-bold  text-[#196A58]" /> {layer.layerName}
+                                    </span>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[#196A58]">Target:</span>
+                                        <span className="font-semibold text-[#196A58]">{layer.totalSheets} Sheets</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[#196A58]">Production:</span>
+                                        <span className="font-semibold text-[#196A58]">{layer.completedSheetCount} Sheets</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[#196A58]">QC:</span>
+                                        <span className="font-semibold text-[#196A58]">{layer.completedQCCount} Sheets</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[#196A58]">Finalized QC:</span>
+                                        <span className="font-semibold text-[#196A58]">{layer.completedFinalizedQCCount} Sheets</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-[#196A58]">Final QC:</span>
+                                        <span className="font-semibold text-[#196A58]">{layer.completedFinalQCCount} Sheets</span>
+                                    </div>
+
+                                </div>
+                                <div className="w-full bg-white rounded-full shadow-lg h-3 mt-4">
+                                    <div
+                                        className="bg-[#196A58] h-3  rounded-full transition-all duration-500"
+                                        style={{ width: `${calculateProgress(layer.completedSheetCount, layer.totalSheets)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ProjectTargets;
