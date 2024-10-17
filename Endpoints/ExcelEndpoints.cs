@@ -123,9 +123,9 @@ public static class ExcelEndpoints
         return Results.Empty;
     }
     private static async Task<IResult> GetFormsExcel(
-    HttpContext context,
-    [FromServices] ApplicationDbContext db,
-    [FromQuery] DateTime date)
+     HttpContext context,
+     [FromServices] ApplicationDbContext db,
+     [FromQuery] DateTime date)
     {
         var forms = await db.Set<Form>()
             .Include(f => f.DailyTargets)
@@ -144,78 +144,68 @@ public static class ExcelEndpoints
             .Where(f => f.ProductivityDate.Date == date.Date)
             .ToListAsync();
 
-        // Fetch all daily sheet assignments for the given date
         var dailySheetAssignments = await db.Set<DailySheetAssignments>()
             .Where(dsa => dsa.AssignmentDate.Date == date.Date)
             .ToListAsync();
 
         using var workbook = new XLWorkbook();
-        var formsByLayer = forms
-            .SelectMany(f => f.DailyTargets)
-            .GroupBy(dt => dt.Layer?.Name ?? "No Layer")
-            .ToDictionary(g => g.Key, g => g.Select(dt => dt.Form).Distinct().ToList());
 
-        foreach (var layer in formsByLayer)
+        // Group forms by layer
+        var formsByLayer = forms.GroupBy(f => f.DailyTargets.FirstOrDefault()?.Layer?.Name ?? "Unknown Layer");
+
+        foreach (var layerGroup in formsByLayer)
         {
-            var worksheet = workbook.Worksheets.Add(layer.Key);
+            var layerName = layerGroup.Key;
+            var worksheet = workbook.Worksheets.Add(layerName);
+
+            // Set up headers
             worksheet.Cell(1, 1).Value = "Form ID";
             worksheet.Cell(1, 2).Value = "Employee Name";
             worksheet.Cell(1, 3).Value = "Submission Date";
             worksheet.Cell(1, 4).Value = "Productivity Date";
-            worksheet.Cell(1, 5).Value = "Product";
-            worksheet.Cell(1, 6).Value = "Productivity";
-            worksheet.Cell(1, 7).Value = "Target Productivity"; // New column
-            worksheet.Cell(1, 8).Value = "Remark";
-            worksheet.Cell(1, 9).Value = "Sheet Number";
-            worksheet.Cell(1, 10).Value = "Sheet Name";
+            worksheet.Cell(1, 5).Value = "Layer";
+            worksheet.Cell(1, 6).Value = "Total Productivity";
+            worksheet.Cell(1, 7).Value = "Target Productivity";
+            worksheet.Cell(1, 8).Value = "Products";
+            worksheet.Cell(1, 9).Value = "Remarks";
+            worksheet.Cell(1, 10).Value = "Production Role";
             worksheet.Cell(1, 11).Value = "Approval State";
             worksheet.Cell(1, 12).Value = "Comment";
-            worksheet.Cell(1, 13).Value = "Production Role";
 
             var row = 2;
-            foreach (var form in layer.Value)
+            foreach (var form in layerGroup)
             {
-                foreach (var target in form.DailyTargets.Where(dt => dt.Layer?.Name == layer.Key))
+                worksheet.Cell(row, 1).Value = form.FormId;
+                worksheet.Cell(row, 2).Value = form.EmployeeName;
+                worksheet.Cell(row, 3).Value = form.SubmissionDate;
+                worksheet.Cell(row, 4).Value = form.ProductivityDate;
+                worksheet.Cell(row, 5).Value = layerName;
+
+                // Sum up productivities
+                worksheet.Cell(row, 6).Value = form.DailyTargets.Sum(dt => dt.Productivity);
+
+                // Calculate target productivity
+                var relevantAssignments = dailySheetAssignments
+                    .Where(dsa => dsa.TaqniaId == form.TaqniaID && dsa.AssignmentDate.Date == form.ProductivityDate)
+                    .ToList();
+
+                if (relevantAssignments.Any())
                 {
-                    worksheet.Cell(row, 1).Value = form.FormId;
-                    worksheet.Cell(row, 2).Value = form.EmployeeName;
-                    worksheet.Cell(row, 3).Value = form.SubmissionDate;
-                    worksheet.Cell(row, 4).Value = form.ProductivityDate;
-                    worksheet.Cell(row, 5).Value = target.Product?.Name;
-                    worksheet.Cell(row, 6).Value = target.Productivity;
-
-                    // Calculate target productivity
-                    var relevantAssignments = dailySheetAssignments
-                     .Where(dsa => dsa.TaqniaId == form.TaqniaID && dsa.AssignmentDate.Date == form.ProductivityDate)
-                     .ToList();
-
-                    if (relevantAssignments.Any())
-                    {
-                        var targetProductivity = relevantAssignments
-                            .Sum(dsa => (dsa.Remark?.ToLower() == "dense") ? 0.5 : 1.0);
-                        worksheet.Cell(row, 7).Value = targetProductivity;
-                    }
-                    else
-                    {
-                        worksheet.Cell(row, 7).Value = "Unknown";
-                    }
-
-
-                    worksheet.Cell(row, 8).Value = target.Remark?.Name;
-                    string sheetNumber = target.SheetLayerStatus?.Sheet?.SheetName ??
-                                         target.SheetAssignment?.Sheet?.SheetName ??
-                                         "Unknown";
-                    worksheet.Cell(row, 9).Value = sheetNumber;
-                    string sheetName = target.SheetLayerStatus?.Sheet?.SheetName ??
-                                       target.SheetAssignment?.Sheet?.SheetName ??
-                                       "Unknown";
-                    worksheet.Cell(row, 10).Value = sheetName;
-                    worksheet.Cell(row, 11).Value = form.Approvals.LastOrDefault()?.State?.ToString();
-                    worksheet.Cell(row, 12).Value = form.Comment;
-                    worksheet.Cell(row, 13).Value = form.ProductionRole?.ToString();
-                    row++;
+                    var targetProductivity = relevantAssignments
+                        .Sum(dsa => (dsa.Remark?.ToLower() == "dense") ? 0.5 : 1.0);
+                    worksheet.Cell(row, 7).Value = targetProductivity;
                 }
+
+                // Combine products, remarks, and sheet numbers
+                worksheet.Cell(row, 8).Value = string.Join(", ", form.DailyTargets.Select(dt => dt.Product?.Name).Distinct());
+                worksheet.Cell(row, 9).Value = string.Join(", ", form.DailyTargets.Select(dt => dt.Remark?.Name).Distinct());
+                worksheet.Cell(row, 10).Value = form.ProductionRole?.ToString();
+                worksheet.Cell(row, 11).Value = form.Approvals.LastOrDefault()?.State?.ToString();
+                worksheet.Cell(row, 12).Value = form.Comment;
+
+                row++;
             }
+
             worksheet.Columns().AdjustToContents();
         }
 
