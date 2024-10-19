@@ -51,7 +51,6 @@ namespace forms_api.Entities
         public int FormId { get; set; }
         public string? Comment { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
-
         public ProductionRole? ProductionRole { get; set; }
         public Product? Product { get; set; } = null;
 

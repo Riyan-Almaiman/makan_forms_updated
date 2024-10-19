@@ -142,4 +142,4 @@ using (var scope = app.Services.CreateScope())
     //await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\Road_(13-17Oct).xlsx", 5, 4, 1, 3, 2, 2);
 }
 
-//app.Run();
+app.Run();
