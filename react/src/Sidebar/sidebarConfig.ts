@@ -35,7 +35,11 @@ const allSidebarItems: SidebarItemType[] = [
         icon: iconPaths.settingsIcon,
         path: '/settings',
     },
-
+    {
+        label: 'Sheets',
+        icon: iconPaths.formsIcon,
+        path: '/Sheets',
+    },
     {
         label: 'Dashboard',
         icon: iconPaths.exportIcon,
@@ -57,7 +61,7 @@ export const sidebarItemsByRole: Record<string, string[]> = {
     superadmin: [
         '/dashboard',     
            '/create-user',
-
+'/Sheets',
         '/supervisor-table',
         '/pending',      
           '/teams',
@@ -77,7 +81,7 @@ export const sidebarItemsByRole: Record<string, string[]> = {
         '/dashboard',
         '/calculations',
         '/teams',
-
+'/Sheets',
                 '/create-user',
                 
 
@@ -89,7 +93,7 @@ export const sidebarItemsByRole: Record<string, string[]> = {
         '/calculations',     
         '/dashboard',
 '/create-user',
-
+'/Sheets',
         '/teams',
 
        '/settings', 

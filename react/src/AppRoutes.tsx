@@ -10,6 +10,7 @@ import TargetManagement from './Targets/TargetManagement';
 import SupervisorTable from './SupervisorTable/SupervisorTable';
 import Settings from './Settings';
 import TeamManagementComponent from './TeamMembers/TeamManagementComponent';
+import SheetLayerStatusManagement from './SheetLayerStatusManagement';
 interface AppRoutesProps {
   user: User | null;
   calculations: Calculation[];
@@ -107,14 +108,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({
 
         }
       />   
-          {/* <Route
-        path="/assignsheets"
+          <Route
+        path="/sheets"
         element={
-          <ProtectedRoute allowedRoles={["editor"]}>
-           <SheetAssignmentComponent currentUser={user!} />
+          <ProtectedRoute allowedRoles={["supervisor", "admin", "superadmin"]}>
+           <SheetLayerStatusManagement />
           </ProtectedRoute>
         }
-      />  */}
+      /> 
        <Route
       path="/teams"
       element={
