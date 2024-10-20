@@ -20,8 +20,58 @@ namespace forms_api.Services
             _context = context;
 
         }
-     
-            public async Task ImportUsersFromExcel(string filePath)
+        public async Task EnsureSheetLayerStatusEntries()
+        {
+            // Get all sheets, products, and layers
+            var sheets = await _context.Sheets.ToListAsync();
+            var products = await _context.Products.ToListAsync();
+            var layers = await _context.Layers.ToListAsync();
+
+            // Get existing SheetLayerStatus entries
+            var existingStatuses = await _context.SheetLayerStatus
+                .Select(sls => new { sls.SheetId, sls.ProductId, sls.LayerId })
+                .ToListAsync();
+
+            var statusesToAdd = new List<SheetLayerStatus>();
+
+            foreach (var sheet in sheets)
+            {
+                foreach (var product in products)
+                {
+                    foreach (var layer in layers)
+                    {
+                        // Check if the combination already exists
+                        if (!existingStatuses.Any(s => s.SheetId == sheet.SheetId &&
+                                                       s.ProductId == product.Id &&
+                                                       s.LayerId == layer.Id))
+                        {
+                            // If it doesn't exist, create a new SheetLayerStatus
+                            statusesToAdd.Add(new SheetLayerStatus
+                            {
+                                SheetId = sheet.SheetId,
+                                ProductId = product.Id,
+                                LayerId = layer.Id,
+                                Completion = 0,
+                                IsQCInProgress = true,
+                                IsFinalQCInProgress = true,
+                                IsFinalizedQCInProgress = true,
+                                InProgress = true
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Add the new statuses to the context
+            if (statusesToAdd.Any())
+            {
+                await _context.SheetLayerStatus.AddRangeAsync(statusesToAdd);
+                await _context.SaveChangesAsync();
+            }
+
+            Console.WriteLine($"Added {statusesToAdd.Count} new SheetLayerStatus entries.");
+        }
+        public async Task ImportUsersFromExcel(string filePath)
         {
             _context.ChangeTracker.Clear();
 
