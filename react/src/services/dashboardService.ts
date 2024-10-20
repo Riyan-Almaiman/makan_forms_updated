@@ -202,14 +202,18 @@ export const dashboardService = {
         }
     },
 
-    downloadExcel: async (date: string): Promise<Blob> => {
+    downloadExcel: async (date: string, productionRole: ProductionRole, productId: number | null): Promise<Blob | null > => {
+        if(!productId){
+            return null; 
+        }
         const response = await axios.get(`${API_URL}/forms-excel`, {
-            params: { date },
-            responseType: 'blob',
-            headers: getAuthHeader() // Add auth header
+          params: { date, productionRole, productId },
+          responseType: 'blob',
+          headers: getAuthHeader()
         });
         return response.data;
-    },
+      },
+    
 
     getProjectTargets: async (deliveryNumber: number, productId: number): Promise<ProjectTargetsResponse> => {
         try {

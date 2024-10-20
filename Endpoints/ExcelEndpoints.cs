@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using static forms_api.Entities.SheetEntities;
 
 public static class ExcelEndpoints
@@ -122,10 +123,15 @@ public static class ExcelEndpoints
 
         return Results.Empty;
     }
+
     private static async Task<IResult> GetFormsExcel(
-     HttpContext context,
-     [FromServices] ApplicationDbContext db,
-     [FromQuery] DateTime date)
+        HttpContext context,
+        [FromServices] ApplicationDbContext db,
+        [FromQuery] DateTime date,
+        [FromQuery] ProductionRole productionRole,
+        [FromQuery] int productId,
+               [FromServices] ILogger<Program> logger)
+
     {
         var forms = await db.Set<Form>()
             .Include(f => f.DailyTargets)
@@ -141,7 +147,9 @@ public static class ExcelEndpoints
                 .ThenInclude(dt => dt.SheetAssignment)
                     .ThenInclude(sa => sa.Sheet)
             .Include(f => f.Approvals)
-            .Where(f => f.ProductivityDate.Date == date.Date)
+            .Where(f => f.ProductivityDate.Date == date.Date
+                     && f.ProductionRole == productionRole
+                     && f.Product.Id == productId)
             .ToListAsync();
 
         var dailySheetAssignments = await db.Set<DailySheetAssignments>()
@@ -157,6 +165,7 @@ public static class ExcelEndpoints
         {
             var layerName = layerGroup.Key;
             var worksheet = workbook.Worksheets.Add(layerName);
+            logger.LogInformation("sheet {layerName}", layerName);
 
             // Set up headers
             worksheet.Cell(1, 1).Value = "Form ID";
@@ -199,7 +208,7 @@ public static class ExcelEndpoints
                 // Combine products, remarks, and sheet numbers
                 worksheet.Cell(row, 8).Value = string.Join(", ", form.DailyTargets.Select(dt => dt.Product?.Name).Distinct());
                 worksheet.Cell(row, 9).Value = string.Join(", ", form.DailyTargets.Select(dt => dt.Remark?.Name).Distinct());
-                worksheet.Cell(row, 10).Value = form.ProductionRole?.ToString();
+                worksheet.Cell(row, 10).Value = form.ProductionRole.ToString();
                 worksheet.Cell(row, 11).Value = form.Approvals.LastOrDefault()?.State?.ToString();
                 worksheet.Cell(row, 12).Value = form.Comment;
 
@@ -213,7 +222,7 @@ public static class ExcelEndpoints
         workbook.SaveAs(stream);
         stream.Position = 0;
         context.Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        context.Response.Headers.Add("Content-Disposition", $"attachment; filename=\"Forms_{date:yyyy-MM-dd}.xlsx\"");
+        context.Response.Headers.Add("Content-Disposition", $"attachment; filename=\"Forms_{date:yyyy-MM-dd}_{productionRole}_{productId}.xlsx\"");
         context.Response.ContentLength = stream.Length;
         await stream.CopyToAsync(context.Response.Body);
         return Results.Empty;

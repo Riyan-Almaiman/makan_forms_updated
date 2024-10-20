@@ -87,14 +87,18 @@ export default function TargetsChart({
 
   const handleDownloadExcel = async () => {
     try {
-      const blob = await dashboardService.downloadExcel(date);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Forms_${date}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
+      const blob = await dashboardService.downloadExcel(date, selectedProductionRole, selectedProductId);
+      if(blob){
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Forms_${date}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+   
     } catch (error) {
       console.error("Error downloading Excel:", error);
     }

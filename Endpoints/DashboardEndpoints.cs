@@ -118,7 +118,7 @@ public static class DashboardEndpoints
         [FromServices] ApplicationDbContext db,
         [FromServices] ILogger<Program> logger)
     {
-        logger.LogInformation("Fetching supervisor team overview for date: {Date}", date);
+        logger.LogInformation("Fetching supervisor team overview for product: {Date}", productId);
         var dashboardDate = DateTime.Parse(date);
 
         // Get all layers

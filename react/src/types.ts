@@ -190,8 +190,7 @@ export interface User {
 export enum ProductionRole {
     Production = 'Production',
     DailyQC = 'DailyQC',
-    FinalizedQC  = 'FinalizedQC',
-    FinalQC = 'FinalQC', 
+
 }
 export const getProductionRoleString = (role: ProductionRole | undefined): string => {
     switch (role) {
@@ -199,10 +198,7 @@ export const getProductionRoleString = (role: ProductionRole | undefined): strin
         return 'Production';
       case ProductionRole.DailyQC:
         return 'Daily QC';
-      case ProductionRole.FinalizedQC:
-        return 'Finalized QC';
-      case ProductionRole.FinalQC:
-        return 'Final QC';
+
       default:
         return 'Unknown';
     }
