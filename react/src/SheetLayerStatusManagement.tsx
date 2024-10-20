@@ -10,6 +10,8 @@ const SheetLayerStatusManagement: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<SheetLayerStatusWithDailyTargets | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const completionOptions = [
     { value: 0, label: '0%' },
@@ -34,33 +36,31 @@ const SheetLayerStatusManagement: React.FC = () => {
     fetchProducts();
   }, []);
 
-  useEffect(() => {
-    searchSheetLayerStatuses();
-  }, [searchTerm, productId]);
-
   const fetchProducts = async () => {
     try {
       const productsData = await entityService.getAllProducts();
       setProducts(productsData);
     } catch (error) {
       console.error('Error fetching products:', error);
+      setError('Failed to fetch products');
     }
   };
 
   const searchSheetLayerStatuses = async () => {
-    if (searchTerm.trim() === '') {
-      setSheetLayerStatuses([]);
-      return;
-    }
-    setSelectedStatus(null);  
+    if (searchTerm.trim() === '') return;
+    setLoading(true);
+    setSelectedStatus(null);
+    setHasSearched(true);
     try {
-      const statuses = await sheetLayerStatusService.searchSheetLayerStatusesAcrossLayers(searchTerm, productId);
+      const statuses = await sheetLayerStatusService.searchSheetLayerStatusesAcrossLayers(searchTerm.trim(), productId);
       setSheetLayerStatuses(statuses);
       setError(null);
     } catch (error) {
       console.error('Error fetching sheet layer statuses:', error);
       setSheetLayerStatuses([]);
       setError('Failed to fetch sheet layer statuses');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,38 +68,25 @@ const SheetLayerStatusManagement: React.FC = () => {
     setSelectedStatus(status);
   };
 
-  const handleProductionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const inProgress = e.target.value === 'true';
-    setSelectedStatus(prevStatus => {
-      if (prevStatus) {
-        return {
-          ...prevStatus,
-          sheetLayerStatus: {
-            ...prevStatus.sheetLayerStatus,
-            inProgress: inProgress,
-            completion: inProgress ? prevStatus.sheetLayerStatus.completion : 1
-          }
-        };
-      }
-      return prevStatus;
-    });
-  };
-
   const handleStatusUpdate = async () => {
     if (selectedStatus) {
+      setLoading(true);
       try {
         await sheetLayerStatusService.updateSheetLayerStatus(selectedStatus.sheetLayerStatus.id, selectedStatus.sheetLayerStatus);
-        searchSheetLayerStatuses(); // Refresh the list
+        await searchSheetLayerStatuses();
         setSelectedStatus(null);
       } catch (error) {
         console.error('Error updating sheet layer status:', error);
         setError('Failed to update sheet layer status');
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   return (
-    <div className="mx-auto p-4 bg-white rounded-lg shadow-lg">
+    <div className="mx-auto p-6 bg-white rounded-lg shadow-lg">
+      
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
           <strong className="font-bold">Error: </strong>
@@ -107,16 +94,16 @@ const SheetLayerStatusManagement: React.FC = () => {
         </div>
       )}
 
-      <div className="mb-4 flex space-x-2">
+      <div className="mb-6 flex space-x-2">
         <input
           type="text"
           placeholder="Search sheets..."
-          className="flex-grow p-2 border focus:border-[#196A58] rounded"
+          className="flex-grow p-2 border border-gray-300 focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50 rounded"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
         <select
-          className="w-1/3 p-2 border focus:border-[#196A58] rounded"
+          className="w-1/3 p-2 border border-gray-300 focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50 rounded"
           value={productId || ''}
           onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : null)}
         >
@@ -124,16 +111,24 @@ const SheetLayerStatusManagement: React.FC = () => {
             <option key={product.id} value={product.id}>{product.name}</option>
           ))}
         </select>
+        <button
+          onClick={searchSheetLayerStatuses}
+          disabled={loading}
+          className="bg-[#196A58] text-white py-2 px-4 rounded hover:bg-[#196A58]/90 focus:outline-none focus:ring-2 focus:ring-[#196A58] focus:ring-opacity-50 transition duration-200 ease-in-out"
+        >
+          {loading ? 'Searching...' : 'Search'}
+        </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Sheet Layer Status List */}
-        <div className="w-full md:w-1/4">
-          <div className="bg-gray-100 p-2 rounded-lg overflow-y-auto">
+        <div className="w-full lg:w-1/3">
+          <h2 className="text-xl font-semibold mb-3 text-[#196A58]">Search Results</h2>
+          <div className="bg-gray-100 p-4 rounded-lg overflow-y-auto max-h-[600px]">
             {sheetLayerStatuses.map(status => (
               <div
                 key={status.sheetLayerStatus.id}
-                className={`flex justify-between items-center p-3 mb-2 rounded-lg cursor-pointer ${
+                className={`flex justify-between items-center p-3 mb-2 rounded-lg cursor-pointer transition duration-200 ease-in-out ${
                   selectedStatus?.sheetLayerStatus.id === status.sheetLayerStatus.id
                     ? 'bg-[#196A58] text-white'
                     : 'bg-white hover:bg-gray-200'
@@ -145,136 +140,126 @@ const SheetLayerStatusManagement: React.FC = () => {
                   <p className="text-sm">{status.layer.name}</p>
                   <p className="text-sm">Delivery: {status.sheet.deliveryNumber}</p>
                 </div>
-                <div className="text-sm">
-                  Completion: {status.sheetLayerStatus.completion * 100}%
+                <div className="text-sm font-semibold">
+                  {(status.sheetLayerStatus.completion * 100).toFixed(0)}%
                 </div>
               </div>
             ))}
-            {sheetLayerStatuses.length === 0 && searchTerm.trim() !== '' && (
+             {hasSearched && sheetLayerStatuses.length === 0 && !loading && (
               <p className="text-center text-gray-500 mt-4">No results found</p>
             )}
           </div>
         </div>
 
-        {/* Status Details and Update Form */}
-        <div className="w-full md:w-2/4">
-          <h3 className="text-lg font-semibold mb-2">
-            {selectedStatus ? `Update Status: ${selectedStatus.sheet.sheetName} - ${selectedStatus.layer.name}` : ''}
-          </h3>
-          {selectedStatus && (
-            <div className="bg-[#196A58]/15 p-4 rounded-lg">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Production</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
-                  value={selectedStatus.sheetLayerStatus.inProgress.toString()}
-                  onChange={handleProductionChange}
-                >
-                  {booleanOptions.map(option => (
-                    <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Sheet Completion Percentage</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
-                  value={selectedStatus.sheetLayerStatus.completion}
-                  onChange={(e) => setSelectedStatus({
-                    ...selectedStatus,
-                    sheetLayerStatus: {
-                      ...selectedStatus.sheetLayerStatus,
-                      completion: parseFloat(e.target.value)
-                    }
-                  })}
-                >
-                  {completionOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Daily QC</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
-                  value={selectedStatus.sheetLayerStatus.isQCInProgress.toString()}
-                  onChange={(e) => setSelectedStatus({
-                    ...selectedStatus,
-                    sheetLayerStatus: {
-                      ...selectedStatus.sheetLayerStatus,
-                      isQCInProgress: e.target.value === 'true'
-                    }
-                  })}
-                >
-                  {booleanOptions.map(option => (
-                    <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Final QC</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
-                  value={selectedStatus.sheetLayerStatus.isFinalQCInProgress.toString()}
-                  onChange={(e) => setSelectedStatus({
-                    ...selectedStatus,
-                    sheetLayerStatus: {
-                      ...selectedStatus.sheetLayerStatus,
-                      isFinalQCInProgress: e.target.value === 'true'
-                    }
-                  })}
-                >
-                  {booleanOptions.map(option => (
-                    <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Finalized QC</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
-                  value={selectedStatus.sheetLayerStatus.isFinalizedQCInProgress.toString()}
-                  onChange={(e) => setSelectedStatus({
-                    ...selectedStatus,
-                    sheetLayerStatus: {
-                      ...selectedStatus.sheetLayerStatus,
-                      isFinalizedQCInProgress: e.target.value === 'true'
-                    }
-                  })}
-                >
-                  {booleanOptions.map(option => (
-                    <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
 
-              {/* Daily Target Information */}
-        
+        {/* Status Details and Update Form */}
+        <div className="w-full lg:w-2/3">
+          <h2 className="text-xl font-semibold mb-3 text-[#196A58]">
+            {selectedStatus ? `Update Status: ${selectedStatus.sheet.sheetName} - ${selectedStatus.layer.name}` : 'Select a status to update'}
+          </h2>
+          {selectedStatus && (
+            <div className="bg-[#196A58]/5 p-6 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Production Status</label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
+                    value={selectedStatus.sheetLayerStatus.inProgress.toString()}
+                    onChange={(e) => setSelectedStatus({
+                      ...selectedStatus,
+                      sheetLayerStatus: {
+                        ...selectedStatus.sheetLayerStatus,
+                        inProgress: e.target.value === 'true'
+                      }
+                    })}
+                  >
+                    {booleanOptions.map(option => (
+                      <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Completion Percentage</label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
+                    value={selectedStatus.sheetLayerStatus.completion}
+                    onChange={(e) => setSelectedStatus({
+                      ...selectedStatus,
+                      sheetLayerStatus: {
+                        ...selectedStatus.sheetLayerStatus,
+                        completion: parseFloat(e.target.value)
+                      }
+                    })}
+                  >
+                    {completionOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Daily QC Status</label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
+                    value={selectedStatus.sheetLayerStatus.isQCInProgress.toString()}
+                    onChange={(e) => setSelectedStatus({
+                      ...selectedStatus,
+                      sheetLayerStatus: {
+                        ...selectedStatus.sheetLayerStatus,
+                        isQCInProgress: e.target.value === 'true'
+                      }
+                    })}
+                  >
+                    {booleanOptions.map(option => (
+                      <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Final QC Status</label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded focus:border-[#196A58] focus:ring focus:ring-[#196A58] focus:ring-opacity-50"
+                    value={selectedStatus.sheetLayerStatus.isFinalQCInProgress.toString()}
+                    onChange={(e) => setSelectedStatus({
+                      ...selectedStatus,
+                      sheetLayerStatus: {
+                        ...selectedStatus.sheetLayerStatus,
+                        isFinalQCInProgress: e.target.value === 'true'
+                      }
+                    })}
+                  >
+                    {booleanOptions.map(option => (
+                      <option key={option.value.toString()} value={option.value.toString()}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
               <button
                 onClick={handleStatusUpdate}
-                className="w-full mt-4 bg-[#196A58] text-white py-2 px-4 rounded-md hover:bg-[#196A58]/90 focus:outline-none focus:ring-2 focus:ring-[#196A58] focus:ring-opacity-50"
+                disabled={loading}
+                className="w-full mt-6 bg-[#196A58] text-white py-2 px-4 rounded-md hover:bg-[#196A58]/90 focus:outline-none focus:ring-2 focus:ring-[#196A58] focus:ring-opacity-50 transition duration-200 ease-in-out"
               >
-                Update Status
+                {loading ? 'Updating...' : 'Update Status'}
               </button>
             </div>
           )}
 
-        </div>        <div className="w-full md:w-1/4 flex-row">
-        {selectedStatus && selectedStatus.dailyTargets.length > 0 &&  (
-                <div className="mt-4 p-3 bg-gray-100 rounded-lg">
-                  <h4 className="font-semibold mb-2">Daily Targets</h4>
-                  {selectedStatus.dailyTargets.map((target, index) => (
-                    <div key={index} className="mb-2 pb-2 border-b border-green-800 last:border-b-0">
-                      <p>Production Role: {target.productionRole}</p>
-                      <p>Employee: {target.employeeName}</p>
-                      <p>Taqnia ID: {target.taqniaID}</p>
-                      <p>Productivity Date: {new Date(target.productivityDate || '').toLocaleDateString()}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-          </div>
+          {/* Daily Target Information */}
+          {selectedStatus && selectedStatus.dailyTargets.length > 0 && (
+            <div className="mt-6 bg-gray-100 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedStatus.dailyTargets.map((target, index) => (
+                  <div key={index} className="bg-white p-3 rounded-lg shadow">
+                    <p><strong>Production Role:</strong> {target.productionRole}</p>
+                    <p><strong>Employee:</strong> {target.employeeName}</p>
+                    <p><strong>Taqnia ID:</strong> {target.taqniaID}</p>
+                    <p><strong>Date:</strong> {new Date(target.productivityDate || '').toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
