@@ -14,7 +14,7 @@ const SheetLayerStatusList: React.FC<Props> = ({ form, setForm, userLayerId }) =
     // const [loading, setLoading] = useState(false);
     // const [error, setError] = useState<string | null>(null);
 
-    const isQCRole = [ProductionRole.DailyQC, ProductionRole.FinalQC, ProductionRole.FinalizedQC].includes(form.productionRole as ProductionRole);
+    const isQCRole = [ProductionRole.DailyQC].includes(form.productionRole as ProductionRole);
 
     useEffect(() => {
         setSheetStatuses([]);

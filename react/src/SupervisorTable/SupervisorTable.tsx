@@ -136,7 +136,7 @@ const SupervisorTable: React.FC<Props> = ({ user }) => {
                                         <div className="flex items-center justify-between">
                                             <p className="text-xs truncate flex-grow">{form.employeeName}</p>
                                             <div className="ml-2 flex-shrink-0 flex items-center space-x-1">
-                                                {[ProductionRole.DailyQC, ProductionRole.FinalQC, ProductionRole.FinalizedQC].includes(form.productionRole as ProductionRole) && (
+                                                {[ProductionRole.DailyQC].includes(form.productionRole as ProductionRole) && (
                                                     <span className="text-xs font-bold text-blue-600 bg-blue-100 rounded-lg p-1">QC</span>
                                                 )}
                                                 {getStatusBadge(form.approvals[0]?.state)}
@@ -171,7 +171,7 @@ const SupervisorTable: React.FC<Props> = ({ user }) => {
                                         </div>
                                         <div className="flex-1 min-w-[200px]">
                                             <span className="font-semibold">Role:</span> 
-                                            <span className={`ml-1 ${[ProductionRole.DailyQC, ProductionRole.FinalQC, ProductionRole.FinalizedQC].includes(selectedForm.productionRole as ProductionRole) ? 'text-blue-600 font-bold' : ''}`}>
+                                            <span className={`ml-1 ${[ProductionRole.DailyQC].includes(selectedForm.productionRole as ProductionRole) ? 'text-blue-600 font-bold' : ''}`}>
                                                 {selectedForm.productionRole || "Production"}
                                             </span>
                                         </div>

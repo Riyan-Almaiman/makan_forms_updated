@@ -41,7 +41,7 @@ export const SearchSheetStatus: React.FC<Props> = ({ layerId, onSearchResults, p
         }
     };
 
-    const isQCRole = [ProductionRole.DailyQC, ProductionRole.FinalQC, ProductionRole.FinalizedQC].includes(role);
+    const isQCRole = [ProductionRole.DailyQC].includes(role);
 
     return (
         <div className="flex flex-col sm:flex-row w-full gap-2">
