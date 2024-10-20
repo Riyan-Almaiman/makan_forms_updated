@@ -78,9 +78,9 @@ namespace forms_api.Entities
     public enum ProductionRole
     {
         Production,
-        DailyQC,
-        FinalizedQC,
-       FinalQC,
+        DailyQC
+       // FinalizedQC,
+       //FinalQC,
 
     }
 }

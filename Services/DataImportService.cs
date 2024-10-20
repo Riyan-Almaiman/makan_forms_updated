@@ -311,61 +311,47 @@ namespace forms_api.Services
                 await _context.Remarks.AddRangeAsync(remarks);
             }
         }
-        public async Task ImportDailySheetAssignments(
-     string filePath,
-     int sheetNumberColumn,
-     int assignmentDateColumn,
-     int taqniaIdColumn,
-     int nameColumn,
-     int remarkColumn,
-     int layerId)
+        public async Task ImportDailySheetAssignments(string jsonFilePath, int layerId)
         {
-            using var workbook = new XLWorkbook(filePath);
-            var worksheet = workbook.Worksheet(1); // Get the first worksheet
-            var rows = worksheet.RowsUsed().Skip(1); // Skip header row
+            // Read and parse the JSON file
+            string jsonContent = await File.ReadAllTextAsync(jsonFilePath);
+            var jsonData = JsonSerializer.Deserialize<List<JsonEntry>>(jsonContent);
+
             var dailySheetAssignments = new List<DailySheetAssignments>();
-            var skippedRows = new List<string>();
+            var skippedEntries = new List<string>();
 
             // Get all existing TaqniaIds from the Users table
             var existingTaqniaIds = new HashSet<int>(await _context.Users.Select(u => u.TaqniaID).ToListAsync());
 
-            foreach (var row in rows)
+            foreach (var entry in jsonData)
             {
-                if (DateTime.TryParseExact(
-                    row.Cell(assignmentDateColumn).Value.ToString(),
-                    new[] { "M/d/yyyy", "M/d/yyyy h:mm:ss tt" },
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out DateTime assignmentDate))
+                if (int.TryParse(entry.Attributes.Emp_ID, out int taqniaId))
                 {
-                    if (int.TryParse(row.Cell(taqniaIdColumn).Value.ToString(), out int taqniaId))
+                    if (existingTaqniaIds.Contains(taqniaId))
                     {
-                        if (existingTaqniaIds.Contains(taqniaId))
+                        var dates = ParseDates(entry.Attributes.Delivery_Date);
+                        foreach (var date in dates)
                         {
                             var dailyAssignment = new DailySheetAssignments
                             {
-                                SheetNumber = row.Cell(sheetNumberColumn).Value.ToString(),
-                                AssignmentDate = assignmentDate,
+                                SheetNumber = entry.Attributes.nrn,
+                                AssignmentDate = date,
                                 TaqniaId = taqniaId,
-                                Name = row.Cell(nameColumn).Value.ToString(),
-                                Remark = row.Cell(remarkColumn).Value.ToString(),
+                                Name = entry.Attributes.Username,
+                                Remark = string.Empty,
                                 LayerId = layerId
                             };
                             dailySheetAssignments.Add(dailyAssignment);
                         }
-                        else
-                        {
-                            skippedRows.Add($"Row {row.RowNumber()}: TaqniaId {taqniaId} does not exist in the Users table");
-                        }
                     }
                     else
                     {
-                        skippedRows.Add($"Row {row.RowNumber()}: Invalid TaqniaId format");
+                        skippedEntries.Add($"Entry with NRN {entry.Attributes.nrn}: TaqniaId {taqniaId} does not exist in the Users table");
                     }
                 }
                 else
                 {
-                    skippedRows.Add($"Row {row.RowNumber()}: Invalid date format");
+                    skippedEntries.Add($"Entry with NRN {entry.Attributes.nrn}: Invalid TaqniaId format");
                 }
             }
 
@@ -387,22 +373,70 @@ namespace forms_api.Services
                 }
             }
 
-            // Report skipped rows
-            if (skippedRows.Any())
+            // Report skipped entries
+            if (skippedEntries.Any())
             {
-                Console.WriteLine("The following rows were skipped:");
-                foreach (var skippedRow in skippedRows)
+                Console.WriteLine("The following entries were skipped:");
+                foreach (var skippedEntry in skippedEntries)
                 {
-                    Console.WriteLine(skippedRow);
+                    Console.WriteLine(skippedEntry);
                 }
             }
         }
 
-        private class SheetAssignment
+        private List<DateTime> ParseDates(string dateString)
         {
-            public string Nrn { get; set; }
+            var dates = new List<DateTime>();
+            var dateParts = dateString.Split(new[] { '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var part in dateParts)
+            {
+                if (DateTime.TryParseExact(part.Trim(), "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+                {
+                    dates.Add(date);
+                }
+            }
+
+            return dates;
+        }
+
+        public class JsonEntry
+        {
+            public Attributes Attributes { get; set; }
+            public Geometry Geometry { get; set; }
+        }
+
+        public class Attributes
+        {
+            public string country { get; set; }
+            public string nrn { get; set; }
+            public string Remarks { get; set; }
+            public int Year { get; set; }
+            public string Delivery { get; set; }
+            public int Priority { get; set; }
+            public string Deliveries_Dates { get; set; }
+            public string Sheets100K { get; set; }
+            public string Sheets250K { get; set; }
+            public string Road_Index_Density { get; set; }
+            public string Newplan_Dates { get; set; }
+            public string Roads_Status { get; set; }
+            public int KM { get; set; }
+            public string GlobalID { get; set; }
+            public string created_user { get; set; }
+            public string created_date { get; set; }
+            public string last_edited_user { get; set; }
+            public string last_edited_date { get; set; }
             public string Username { get; set; }
-            public string IndexStat { get; set; }
+            public string Delivery_Date { get; set; }
+            public string Emp_ID { get; set; }
+            public double shape_Length { get; set; }
+            public double shape_Area { get; set; }
+        }
+
+        public class Geometry
+        {
+            public string type { get; set; }
+            public List<List<List<double>>> coordinates { get; set; }
         }
     }
 }

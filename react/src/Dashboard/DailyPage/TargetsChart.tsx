@@ -88,12 +88,12 @@ export default function TargetsChart({
   const handleDownloadExcel = async () => {
     try {
       const blob = await dashboardService.downloadExcel(date, selectedProductionRole, selectedProductId);
-      if(blob){
+      if(blob && selectedProductId){
 
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Forms_${date}.xlsx`;
+        a.download = `Forms_${date}_${selectedProductionRole}_${products.find(p => p.id = selectedProductId)?.name}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

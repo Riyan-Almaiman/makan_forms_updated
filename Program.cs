@@ -140,7 +140,14 @@ using (var scope = app.Services.CreateScope())
    //await  passwordEncryptionService.CheckAndEncryptPasswords();
   //await dataImportService.EnsureSheetLayerStatusEntries();
         //string jsonContent = File.ReadAllText(@"C:\Users\ralmaiman\Desktop\output.json");
-    //await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\Road_(13-17Oct).xlsx", 5, 4, 1, 3, 2, 2);
+    await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\json_files\index_50K_Agriculture.json", 1);
+    await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\json_files\index_50K_Buildings.json", 3);
+    await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\json_files\index_50K_Hydro.json", 5);
+    await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\json_files\index_50K_Roads.json", 2);
+    await dataImportService.ImportDailySheetAssignments(@"C:\Users\ralmaiman\Desktop\json_files\index_50K_Physio.json", 6);
+
+
+        
 }
 
 app.Run();

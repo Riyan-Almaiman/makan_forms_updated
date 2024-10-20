@@ -172,16 +172,7 @@ public static class SheetLayerEndpoints
                     (sls.Completion == 1 || !sls.InProgress) &&
                     sls.IsQCInProgress);
                 break;
-            case ProductionRole.FinalizedQC:
-                query = query.Where(sls =>
-                    !sls.IsQCInProgress &&
-                    sls.IsFinalizedQCInProgress);
-                break;
-            case ProductionRole.FinalQC:
-                query = query.Where(sls =>
-                    !sls.IsFinalizedQCInProgress &&
-                    sls.IsFinalQCInProgress);
-                break;
+
             default:
                 return Results.BadRequest("Invalid QC role");
         }

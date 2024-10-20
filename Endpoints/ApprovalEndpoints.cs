@@ -146,41 +146,41 @@ public static class ApprovalEndpoints
                 }
             }
         }
-        else if (form.ProductionRole == ProductionRole.FinalizedQC)
-        {
-            if (request.IsApproved)
-            {
-                foreach (var dailyTarget in form.DailyTargets)
-                {
-                    dailyTarget.SheetLayerStatus.IsFinalizedQCInProgress = false;
+        //else if (form.ProductionRole == ProductionRole.FinalizedQC)
+        //{
+        //    if (request.IsApproved)
+        //    {
+        //        foreach (var dailyTarget in form.DailyTargets)
+        //        {
+        //            dailyTarget.SheetLayerStatus.IsFinalizedQCInProgress = false;
 
-                }
-            }
-            if (!request.IsApproved)
-            {
-                foreach (var dailyTarget in form.DailyTargets)
-                {
-                    dailyTarget.SheetLayerStatus.IsFinalizedQCInProgress = true;
-                }
-            }
-        }
-        else if (form.ProductionRole == ProductionRole.FinalQC)
-        {
-            if (request.IsApproved)
-            {
-                foreach (var dailyTarget in form.DailyTargets)
-                {
-                    dailyTarget.SheetLayerStatus.IsFinalQCInProgress = false;
-                }
-            }
-            if (!request.IsApproved)
-            {
-                foreach (var dailyTarget in form.DailyTargets)
-                {
-                    dailyTarget.SheetLayerStatus.IsFinalQCInProgress = false;
-                }
-            }
-        }
+        //        }
+        //    }
+        //    if (!request.IsApproved)
+        //    {
+        //        foreach (var dailyTarget in form.DailyTargets)
+        //        {
+        //            dailyTarget.SheetLayerStatus.IsFinalizedQCInProgress = true;
+        //        }
+        //    }
+        //}
+        //else if (form.ProductionRole == ProductionRole.FinalQC)
+        //{
+        //    if (request.IsApproved)
+        //    {
+        //        foreach (var dailyTarget in form.DailyTargets)
+        //        {
+        //            dailyTarget.SheetLayerStatus.IsFinalQCInProgress = false;
+        //        }
+        //    }
+        //    if (!request.IsApproved)
+        //    {
+        //        foreach (var dailyTarget in form.DailyTargets)
+        //        {
+        //            dailyTarget.SheetLayerStatus.IsFinalQCInProgress = false;
+        //        }
+        //    }
+        //}
         try
         {
             await db.SaveChangesAsync();
