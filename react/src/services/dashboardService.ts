@@ -141,11 +141,14 @@ export enum FormState {
 }
 
 export const dashboardService = {
-    getCompletedSheetsCount: async (): Promise<number> => {
+    getCompletedSheetsCount: async (productId: number): Promise<number> => {
         try {
-            const response = await axios.get<{ completedSheetsCount: number }>(`${API_URL}/completed-sheets-count`, {
-                headers: getAuthHeader()
-            });
+            const response = await axios.get<{ completedSheetsCount: number }>(
+                `${API_URL}/completed-sheets-count/${productId}`,
+                {
+                    headers: getAuthHeader()
+                }
+            );
             console.log('Completed sheets count:', response.data.completedSheetsCount);
             return response.data.completedSheetsCount;
         } catch (error) {
@@ -208,16 +211,10 @@ export const dashboardService = {
         return response.data;
     },
 
-    getProjectTargetsWithActuals: async (): Promise<any[]> => {
-        const response = await axios.get<any[]>(`${API_URL}/project-targets-with-actuals`, {
-            headers: getAuthHeader() // Add auth header
-        });
-        return response.data;
-    },
-    getProjectTargets: async (deliveryNumber: number): Promise<ProjectTargetsResponse> => {
+    getProjectTargets: async (deliveryNumber: number, productId: number): Promise<ProjectTargetsResponse> => {
         try {
             const response = await axios.get<ProjectTargetsResponse>(
-                `${API_URL}/project-targets/${deliveryNumber}`,
+                `${API_URL}/project-targets/${deliveryNumber}/${productId}`,
                 {
                     headers: getAuthHeader()
                 }
@@ -226,11 +223,12 @@ export const dashboardService = {
             return response.data;
         } catch (error) {
             if (axios.isAxiosError(error) && error.response?.status === 404) {
-                throw new Error(`No approved assignments found for delivery number ${deliveryNumber}`);
+                throw new Error(`No approved assignments found for delivery number ${deliveryNumber} and product ID ${productId}`);
             }
             throw error;
         }
     },
+
     GetWeeklyTargetsWithActuals: async (
         startDate: string,
         endDate: string,

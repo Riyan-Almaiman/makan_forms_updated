@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Layers, Download, FileText } from 'lucide-react';
 import { dashboardService, ProjectTargetsResponse } from '../services/dashboardService';
+import { entityService } from '../services/entityService';
+import { Product } from '../types';
 
 const DELIVERY_NUMBER = 3;
 const DELIVERY_DATE = '2024-12-10'; // Hard-coded delivery date
 
-// Add an array of authorized user IDs
-const AUTHORIZED_USER_IDS = [4850, 4591, 4592, 4720, 4804, 4805, 4841, 3, 4414, 5035]; // Replace with actual authorized user IDs
+const AUTHORIZED_USER_IDS = [4850, 4591, 4592, 4720, 4804, 4805, 4841, 3, 4414, 5035];
 
 const ProjectTargets: React.FC = () => {
     const [projectTargets, setProjectTargets] = useState<ProjectTargetsResponse | null>(null);
@@ -14,34 +15,59 @@ const ProjectTargets: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isAuthorized, setIsAuthorized] = useState(false);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const [targets, sheetsCount] = await Promise.all([
-                    dashboardService.getProjectTargets(DELIVERY_NUMBER),
-                    dashboardService.getCompletedSheetsCount()
-                ]);
-                setProjectTargets(targets);
-                setCompletedSheetsCount(sheetsCount);
-                setLoading(false);
-
-                // Check user authorization
-                const userJson = localStorage.getItem('user');
-                if (userJson) {
-                    const user = JSON.parse(userJson);
-                    setIsAuthorized(AUTHORIZED_USER_IDS.includes(user));
-                }
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                setError('Failed to fetch data');
-                setLoading(false);
-            }
-        };
-
-        fetchData();
+        fetchProducts();
     }, []);
+
+    useEffect(() => {
+        if (selectedProductId) {
+            fetchData(selectedProductId);
+        }
+    }, [selectedProductId]);
+
+    const fetchProducts = async () => {
+        try {
+            const fetchedProducts = await entityService.getAllProducts();
+            setProducts(fetchedProducts);
+            if (fetchedProducts.length > 0) {
+                setSelectedProductId(fetchedProducts[0].id);
+            }
+        } catch (err) {
+            console.error("Failed to fetch products:", err);
+            setError('Failed to fetch products');
+        }
+    };
+
+    const fetchData = async (productId: number) => {
+        try {
+            setLoading(true);
+            const [targets, sheetsCount] = await Promise.all([
+                dashboardService.getProjectTargets(DELIVERY_NUMBER, productId),
+                dashboardService.getCompletedSheetsCount(productId)
+            ]);
+            setProjectTargets(targets);
+            setCompletedSheetsCount(sheetsCount);
+            setLoading(false);
+            const userJson = localStorage.getItem('user');
+            if (userJson) {
+                const user = JSON.parse(userJson);
+                setIsAuthorized(AUTHORIZED_USER_IDS.includes(user));
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            setError('Failed to fetch data');
+            setLoading(false);
+        }
+    };
+
+    const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newProductId = parseInt(e.target.value);
+        setSelectedProductId(newProductId);
+    };
+
 
     const calculateProgress = (completed: number, total: number) => {
         return total > 0 ? Math.min(Math.round((completed / total) * 100), 100) : 0;
@@ -101,12 +127,24 @@ const ProjectTargets: React.FC = () => {
                 <div style={{ backgroundImage: `url(makanBackgroundDark.png)` }} className="p-4">
                     <h3 className="text-2xl font-bold text-white flex items-center justify-between">
                         <span>Delivery {projectTargets?.deliveryNumber}</span>
-                        <button
-                            onClick={handleDownloadExcelAll}
-                            className="text-[#196A58] text-sm p-1 rounded-md flex items-center hover:bg-[#196A58] transition-colors duration-300"
-                        >
-                            <Download className="w-6 h-6 text-white" />
-                        </button>
+                        <div className="flex items-center">
+                            <select
+                                id="product-select"
+                                value={selectedProductId || ''}
+                                onChange={handleProductChange}
+                                className="px-2 py-1 border border-gray-300 rounded-md text-sm mr-4 text-[#196A58]"
+                            >
+                                {products.map((product) => (
+                                    <option key={product.id} value={product.id}>{product.name}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={handleDownloadExcelAll}
+                                className="text-[#196A58] text-sm p-1 rounded-md flex items-center hover:bg-[#196A58] transition-colors duration-300"
+                            >
+                                <Download className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
                     </h3>
                 </div>
                 <div className="p-4">

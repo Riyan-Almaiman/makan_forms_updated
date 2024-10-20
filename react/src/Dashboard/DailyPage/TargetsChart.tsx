@@ -111,7 +111,6 @@ export default function TargetsChart({
               onChange={handleProductChange}
               className="px-2 py-1 border border-gray-300 rounded-md text-sm mr-4"
             >
-              <option value="">Select Product</option>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>{product.name}</option>
               ))}

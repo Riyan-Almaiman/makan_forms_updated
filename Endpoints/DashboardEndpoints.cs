@@ -19,11 +19,11 @@ public static class DashboardEndpoints
 
         //--------------------------project targets-------------------------------//
 
-        app.MapGet("/api/dashboard/project-targets/{deliveryNumber}", GetProjectTargetsByDeliveryNumber)
-      .WithName("GetProjectTargetsByDeliveryNumber");
+        app.MapGet("/api/dashboard/project-targets/{deliveryNumber}/{productId}", GetProjectTargetsByDeliveryNumber)
+                 .WithName("GetProjectTargetsByDeliveryNumber");
 
-        app.MapGet("/api/dashboard/completed-sheets-count", GetCompletedSheetsCount)
-      .WithName("GetCompletedSheetsCount");
+        app.MapGet("/api/dashboard/completed-sheets-count/{productId}", GetCompletedSheetsCount)
+            .WithName("GetCompletedSheetsCount");
 
         //---------------------------------------------------------//
 
@@ -53,15 +53,60 @@ public static class DashboardEndpoints
 
     }
 
-    private static async Task<IResult> GetCompletedSheetsCount(
+    private static async Task<IResult> GetProjectTargetsByDeliveryNumber(
+         int deliveryNumber,
+         int productId,
          [FromServices] ApplicationDbContext db,
          [FromServices] ILogger<Program> logger)
     {
-        logger.LogInformation("Fetching count of completed sheets for all layers, ignoring layers 4 and 7");
-        var completedSheetsCount = await db.Sheets
-            .CountAsync(s =>
-                s.LayerStatuses.Where(ls => ls.LayerId != 4 && ls.LayerId != 7)
-                                .All(ls => !ls.InProgress));
+        logger.LogInformation("Fetching project targets for delivery number: {DeliveryNumber} and product ID: {ProductId}", deliveryNumber, productId);
+
+        var layerCounts = await db.SheetLayerStatus
+            .Where(sls => sls.Sheet.DeliveryNumber == deliveryNumber && sls.ProductId == productId)
+            .GroupBy(sls => sls.Layer)
+            .Select(g => new
+            {
+                LayerId = g.Key.Id,
+                LayerName = g.Key.Name,
+                TotalSheets = g.Count(),
+                InProgressSheetCount = g.Count(sls => sls.InProgress),
+                CompletedSheetCount = g.Count(sls => !sls.InProgress),
+                CompletedQCCount = g.Count(sls => !sls.IsQCInProgress),
+                CompletedFinalQCCount = g.Count(sls => !sls.IsFinalQCInProgress),
+                CompletedFinalizedQCCount = g.Count(sls => !sls.IsFinalizedQCInProgress)
+            })
+            .ToListAsync();
+
+     
+
+        var result = new
+        {
+            DeliveryNumber = deliveryNumber,
+            ProductId = productId,
+            TotalInProgressSheets = layerCounts.Sum(lc => lc.InProgressSheetCount),
+            TotalCompletedSheets = layerCounts.Sum(lc => lc.CompletedSheetCount),
+            TotalCompletedQC = layerCounts.Sum(lc => lc.CompletedQCCount),
+            TotalCompletedFinalQC = layerCounts.Sum(lc => lc.CompletedFinalQCCount),
+            TotalCompletedFinalizedQC = layerCounts.Sum(lc => lc.CompletedFinalizedQCCount),
+            LayerData = layerCounts
+        };
+
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> GetCompletedSheetsCount(
+        int productId,
+        [FromServices] ApplicationDbContext db,
+        [FromServices] ILogger<Program> logger)
+    {
+        logger.LogInformation("Fetching count of completed sheets for product ID: {ProductId}, ignoring layers 4 and 7", productId);
+
+        var completedSheetsCount = await db.SheetLayerStatus
+            .Where(sls => sls.ProductId == productId)
+            .Where(sls => sls.LayerId != 4 && sls.LayerId != 7 && sls.LayerId != 8)
+            .GroupBy(sls => sls.SheetId)
+            .CountAsync(g => g.All(sls => !sls.InProgress));
+
         return Results.Ok(new { CompletedSheetsCount = completedSheetsCount });
     }
 
@@ -482,47 +527,6 @@ public static class DashboardEndpoints
         });
     }
 
-    private static async Task<IResult> GetProjectTargetsByDeliveryNumber(
-      int deliveryNumber,
-      [FromServices] ApplicationDbContext db,
-      [FromServices] ILogger<Program> logger)
-    {
-        logger.LogInformation("Fetching project targets for delivery number: {DeliveryNumber}", deliveryNumber);
-
-        var layerCounts = await db.SheetLayerStatus
-            .Where(sls => sls.Sheet.DeliveryNumber == deliveryNumber)
-            .GroupBy(sls => sls.Layer)
-            .Select(g => new
-            {
-                LayerId = g.Key.Id,
-                LayerName = g.Key.Name,
-                TotalSheets = g.Count(),
-                InProgressSheetCount = g.Count(sls => sls.InProgress),
-                CompletedSheetCount = g.Count(sls => !sls.InProgress),
-                CompletedQCCount = g.Count(sls => !sls.IsQCInProgress),
-                CompletedFinalQCCount = g.Count(sls => !sls.IsFinalQCInProgress),
-                CompletedFinalizedQCCount = g.Count(sls => !sls.IsFinalizedQCInProgress)
-            })
-            .ToListAsync();
-
-        var totalSheets = await db.Sheets
-            .Where(s => s.DeliveryNumber == deliveryNumber)
-            .CountAsync();
-
-        var result = new
-        {
-            DeliveryNumber = deliveryNumber,
-            TotalSheets = totalSheets,
-            TotalInProgressSheets = layerCounts.Sum(lc => lc.InProgressSheetCount),
-            TotalCompletedSheets = layerCounts.Sum(lc => lc.CompletedSheetCount),
-            TotalCompletedQC = layerCounts.Sum(lc => lc.CompletedQCCount),
-            TotalCompletedFinalQC = layerCounts.Sum(lc => lc.CompletedFinalQCCount),
-            TotalCompletedFinalizedQC = layerCounts.Sum(lc => lc.CompletedFinalizedQCCount),
-            LayerData = layerCounts
-        };
-
-        return Results.Ok(result);
-    }
 
     private static DateTime GetStartOfWeek(DateTime date)
     {
