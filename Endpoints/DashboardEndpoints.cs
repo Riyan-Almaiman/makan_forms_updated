@@ -22,7 +22,7 @@ public static class DashboardEndpoints
         app.MapGet("/api/dashboard/project-targets/{deliveryNumber}/{productId}", GetProjectTargetsByDeliveryNumber)
                  .WithName("GetProjectTargetsByDeliveryNumber");
 
-        app.MapGet("/api/dashboard/completed-sheets-count/{productId}", GetCompletedSheetsCount)
+        app.MapGet("/api/dashboard/completed-sheets-count/{productId}/{deliveryNumber}", GetCompletedSheetsCount)
             .WithName("GetCompletedSheetsCount");
 
         //---------------------------------------------------------//
@@ -96,13 +96,14 @@ public static class DashboardEndpoints
 
     private static async Task<IResult> GetCompletedSheetsCount(
         int productId,
+        int deliveryNumber,
         [FromServices] ApplicationDbContext db,
         [FromServices] ILogger<Program> logger)
     {
         logger.LogInformation("Fetching count of completed sheets for product ID: {ProductId}, ignoring layers 4 and 7", productId);
 
         var completedSheetsCount = await db.SheetLayerStatus
-            .Where(sls => sls.ProductId == productId)
+            .Where(sls => sls.ProductId == productId && sls.DeliveryNumber == deliveryNumber)
             .Where(sls => sls.LayerId != 4 && sls.LayerId != 7 && sls.LayerId != 8)
             .GroupBy(sls => sls.SheetId)
             .CountAsync(g => g.All(sls => !sls.InProgress));

@@ -141,10 +141,10 @@ export enum FormState {
 }
 
 export const dashboardService = {
-    getCompletedSheetsCount: async (productId: number): Promise<number> => {
+    getCompletedSheetsCount: async (productId: number, delivery: number): Promise<number> => {
         try {
             const response = await axios.get<{ completedSheetsCount: number }>(
-                `${API_URL}/completed-sheets-count/${productId}`,
+                `${API_URL}/completed-sheets-count/${productId}/${delivery}`,
                 {
                     headers: getAuthHeader()
                 }

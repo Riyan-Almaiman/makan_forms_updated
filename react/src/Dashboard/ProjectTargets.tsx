@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Layers, Download, FileText } from 'lucide-react';
 import { dashboardService, ProjectTargetsResponse } from '../services/dashboardService';
 import { entityService } from '../services/entityService';
 import { Product } from '../types';
 
-const DELIVERY_NUMBER = 3;
+const DELIVERY_NUMBERS = [1, 2 , 3 , 4 , 5 ,6 , 7]
 const DELIVERY_DATE = '2024-12-10'; // Hard-coded delivery date
 
 const AUTHORIZED_USER_IDS = [4850, 4591, 4592, 4720, 4804, 4805, 4841, 3, 4414, 5035];
@@ -17,6 +18,7 @@ const ProjectTargets: React.FC = () => {
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+    const [selectedDelivery, setSelectedDelivery] = useState<number>(3);
 
     useEffect(() => {
         fetchProducts();
@@ -26,7 +28,7 @@ const ProjectTargets: React.FC = () => {
         if (selectedProductId) {
             fetchData(selectedProductId);
         }
-    }, [selectedProductId]);
+    }, [selectedProductId, selectedDelivery]);
 
     const fetchProducts = async () => {
         try {
@@ -45,8 +47,8 @@ const ProjectTargets: React.FC = () => {
         try {
             setLoading(true);
             const [targets, sheetsCount] = await Promise.all([
-                dashboardService.getProjectTargets(DELIVERY_NUMBER, productId),
-                dashboardService.getCompletedSheetsCount(productId)
+                dashboardService.getProjectTargets(selectedDelivery, productId),
+                dashboardService.getCompletedSheetsCount(productId, selectedDelivery)
             ]);
             setProjectTargets(targets);
             setCompletedSheetsCount(sheetsCount);
@@ -111,7 +113,18 @@ const ProjectTargets: React.FC = () => {
             console.error('Error downloading Excel file:', error);
             setError('Failed to download Excel file');
         }
-    };
+    };  const handleSelectChange = (e : any) => {
+        setSelectedDelivery(e.target.value);
+      };
+    
+      const ProgressBar: React.FC<{ value: number; total: number; color: string }> = ({ value, total }) => (
+        <div className="w-full bg-white rounded-full shadow-lg h-2 mt-1">
+            <div
+                className={`bg-[#196A58] h-2 rounded-full transition-all duration-500`}
+                style={{ width: `${calculateProgress(value, total)}%` }}
+            ></div>
+        </div>
+    );
 
     if (loading)
         return (
@@ -126,7 +139,18 @@ const ProjectTargets: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
                 <div style={{ backgroundImage: `url(makanBackgroundDark.png)` }} className="p-4">
                     <h3 className="text-2xl font-bold text-white flex items-center justify-between">
-                        <span>Delivery {projectTargets?.deliveryNumber}</span>
+                        <span>Delivery         <select
+      className='text-green-800 rounded-lg ml-2'
+      value={selectedDelivery} // Controlled value
+      onChange={handleSelectChange} // Update state on change
+    >
+      {DELIVERY_NUMBERS.map((number) => (
+        <option key={number} value={number}>
+          {number}
+        </option>
+      ))}
+    </select></span>
+                    
                         <div className="flex items-center">
                             <select
                                 id="product-select"
@@ -179,45 +203,46 @@ const ProjectTargets: React.FC = () => {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                        {projectTargets?.layerData.map((layer) => (
-                            <div key={layer.layerId} className="bg-[#F0F7F5]/70 shadow-md p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="flex items-center text-lg font-semibold text-[#196A58]">
-                                        <Layers className="w-3 h-3 mr-2 font-bold  text-[#196A58]" /> {layer.layerName}
-                                    </span>
+                {projectTargets?.layerData.map((layer) => (
+                    <div key={layer.layerId} className="bg-[#F0F7F5]/70 shadow-md p-4 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="flex items-center text-lg font-semibold text-[#196A58]">
+                                <Layers className="w-3 h-3 mr-2 font-bold text-[#196A58]" /> {layer.layerName}
+                            </span>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-[#196A58]">Production:</span>
+                                    <span className="font-semibold text-[#196A58]">{layer.completedSheetCount} / {layer.totalSheets} Sheets</span>
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[#196A58]">Target:</span>
-                                        <span className="font-semibold text-[#196A58]">{layer.totalSheets} Sheets</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[#196A58]">Production:</span>
-                                        <span className="font-semibold text-[#196A58]">{layer.completedSheetCount} Sheets</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[#196A58]">QC:</span>
-                                        <span className="font-semibold text-[#196A58]">{layer.completedQCCount} Sheets</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[#196A58]">Finalized QC:</span>
-                                        <span className="font-semibold text-[#196A58]">{layer.completedFinalizedQCCount} Sheets</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-[#196A58]">Final QC:</span>
-                                        <span className="font-semibold text-[#196A58]">{layer.completedFinalQCCount} Sheets</span>
-                                    </div>
-
-                                </div>
-                                <div className="w-full bg-white rounded-full shadow-lg h-3 mt-4">
-                                    <div
-                                        className="bg-[#196A58] h-3  rounded-full transition-all duration-500"
-                                        style={{ width: `${calculateProgress(layer.completedSheetCount, layer.totalSheets)}%` }}
-                                    ></div>
-                                </div>
+                                <ProgressBar value={layer.completedSheetCount} total={layer.totalSheets} color="bg-blue-500" />
                             </div>
-                        ))}
+                            <div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-[#196A58]">QC:</span>
+                                    <span className="font-semibold text-[#196A58]">{layer.completedQCCount} / {layer.totalSheets} Sheets</span>
+                                </div>
+                                <ProgressBar value={layer.completedQCCount} total={layer.totalSheets} color="bg-green-500" />
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-[#196A58]">Finalized QC:</span>
+                                    <span className="font-semibold text-[#196A58]">{layer.completedFinalizedQCCount} / {layer.totalSheets} Sheets</span>
+                                </div>
+                                <ProgressBar value={layer.completedFinalizedQCCount} total={layer.totalSheets} color="bg-yellow-500" />
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-[#196A58]">Final QC:</span>
+                                    <span className="font-semibold text-[#196A58]">{layer.completedFinalQCCount} / {layer.totalSheets} Sheets</span>
+                                </div>
+                                <ProgressBar value={layer.completedFinalQCCount} total={layer.totalSheets} color="bg-red-500" />
+                            </div>
+                        </div>
                     </div>
+                ))}
+            </div>
                 </div>
             </div>
         </div>

@@ -125,13 +125,12 @@ public static class ExcelEndpoints
     }
 
     private static async Task<IResult> GetFormsExcel(
-        HttpContext context,
-        [FromServices] ApplicationDbContext db,
-        [FromQuery] DateTime date,
-        [FromQuery] ProductionRole productionRole,
-        [FromQuery] int productId,
-               [FromServices] ILogger<Program> logger)
-
+      HttpContext context,
+      [FromServices] ApplicationDbContext db,
+      [FromQuery] DateTime date,
+      [FromQuery] ProductionRole productionRole, // Kept as a parameter but not used in filtering
+      [FromQuery] int productId,
+      [FromServices] ILogger<Program> logger)
     {
         var forms = await db.Set<Form>()
             .Include(f => f.DailyTargets)
@@ -148,7 +147,6 @@ public static class ExcelEndpoints
                     .ThenInclude(sa => sa.Sheet)
             .Include(f => f.Approvals)
             .Where(f => f.ProductivityDate.Date == date.Date
-                     && f.ProductionRole == productionRole
                      && f.Product.Id == productId)
             .ToListAsync();
 
@@ -158,14 +156,17 @@ public static class ExcelEndpoints
 
         using var workbook = new XLWorkbook();
 
-        // Group forms by layer
-        var formsByLayer = forms.GroupBy(f => f.DailyTargets.FirstOrDefault()?.Layer?.Name ?? "Unknown Layer");
+        // Group forms by layer and production role
+        var formsByLayerAndRole = forms
+            .GroupBy(f => new { Layer = f.DailyTargets.FirstOrDefault()?.Layer?.Name ?? "Unknown Layer", Role = f.ProductionRole })
+            .OrderBy(g => g.Key.Layer)
+            .ThenBy(g => g.Key.Role);
 
-        foreach (var layerGroup in formsByLayer)
+        foreach (var group in formsByLayerAndRole)
         {
-            var layerName = layerGroup.Key;
-            var worksheet = workbook.Worksheets.Add(layerName);
-            logger.LogInformation("sheet {layerName}", layerName);
+            var sheetName = $"{group.Key.Layer}_{group.Key.Role}";
+            var worksheet = workbook.Worksheets.Add(sheetName);
+            logger.LogInformation("Created sheet: {SheetName}", sheetName);
 
             // Set up headers
             worksheet.Cell(1, 1).Value = "Form ID";
@@ -182,13 +183,13 @@ public static class ExcelEndpoints
             worksheet.Cell(1, 12).Value = "Comment";
 
             var row = 2;
-            foreach (var form in layerGroup)
+            foreach (var form in group)
             {
                 worksheet.Cell(row, 1).Value = form.FormId;
                 worksheet.Cell(row, 2).Value = form.EmployeeName;
                 worksheet.Cell(row, 3).Value = form.SubmissionDate;
                 worksheet.Cell(row, 4).Value = form.ProductivityDate;
-                worksheet.Cell(row, 5).Value = layerName;
+                worksheet.Cell(row, 5).Value = group.Key.Layer;
 
                 // Sum up productivities
                 worksheet.Cell(row, 6).Value = form.DailyTargets.Sum(dt => dt.Productivity);
@@ -218,11 +219,19 @@ public static class ExcelEndpoints
             worksheet.Columns().AdjustToContents();
         }
 
+        if (!workbook.Worksheets.Any())
+        {
+            var worksheet = workbook.Worksheets.Add("No Data");
+            worksheet.Cell(1, 1).Value = "No forms found matching the specified criteria.";
+            worksheet.Columns().AdjustToContents();
+            logger.LogInformation("No data found for the specified criteria");
+        }
+
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         stream.Position = 0;
         context.Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        context.Response.Headers.Add("Content-Disposition", $"attachment; filename=\"Forms_{date:yyyy-MM-dd}_{productionRole}_{productId}.xlsx\"");
+        context.Response.Headers.Add("Content-Disposition", $"attachment; filename=\"Forms_{date:yyyy-MM-dd}_{productId}.xlsx\"");
         context.Response.ContentLength = stream.Length;
         await stream.CopyToAsync(context.Response.Body);
         return Results.Empty;

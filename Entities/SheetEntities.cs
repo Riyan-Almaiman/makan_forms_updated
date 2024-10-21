@@ -33,6 +33,7 @@ namespace forms_api.Entities
             public bool IsFinalizedQCInProgress { get; set; } = true; 
 
             public bool InProgress { get; set; } = true;
+            public int? DeliveryNumber { get; set; }
         }
 
         public class DailySheetAssignments
